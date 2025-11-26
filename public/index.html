@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Texas Hold'em (Multiplayer)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #0b1724;
+            color: #ecf0f1;
+            padding: 16px;
+        }
+
+        .app {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        #controlPanel {
+            background: #1c2833;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        #controlPanel .row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin-bottom: 6px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        input[type="text"] {
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid #34495e;
+            background: #111820;
+            color: #ecf0f1;
+        }
+
+        button {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #34495e;
+            background: #273746;
+            color: #ecf0f1;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #statusText {
+            margin-right: auto;
+        }
+
+        #table {
+            background: radial-gradient(circle at center, #145a32 0, #0b3d22 60%, #041810 100%);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            margin-bottom: 12px;
+        }
+
+        #community {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            min-height: 90px;
+        }
+
+        #players {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .player {
+            background: rgba(12, 20, 28, 0.9);
+            border-radius: 10px;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .player.folded {
+            opacity: 0.5;
+        }
+
+        .player.winner {
+            border-color: #f1c40f;
+            box-shadow: 0 0 10px rgba(241, 196, 15, 0.6);
+        }
+
+        .player.active-turn {
+            border-color: #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .player-header span:first-child {
+            font-weight: 600;
+        }
+
+        .hand {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .card {
+            width: 40px;
+            height: 60px;
+            border-radius: 6px;
+            background: #fdfdfd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            border: 1px solid #bdc3c7;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .card.red {
+            color: #c0392b;
+        }
+
+        .card.black {
+            color: #2c3e50;
+        }
+
+        .card.back {
+            background: #2c3e50;
+            color: #ecf0f1;
+        }
+
+        .result {
+            font-size: 12px;
+            color: #f1c40f;
+        }
+
+        #log {
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 8px 10px;
+            background: #1b2631;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        #log div+div {
+            margin-top: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <h1>Texas Hold'em (Multiplayer)</h1>
+
+        <section id="controlPanel">
+            <div class="row">
+                <label>
+                    Your nickname:
+                    <input id="nameInput" type="text" placeholder="e.g., John" />
+                </label>
+                <button id="joinBtn">Join Room</button>
+                <button id="readyBtn" disabled>Ready</button>
+                <button id="foldBtn" disabled>Fold</button>
+                <button id="startNextBtn" disabled>Start Next Hand</button>
+                <button id="resetBtn" disabled>Reset Game</button>
+
+            </div>
+            <div class="row">
+                <label>
+                    Bet:
+                    <input id="betInput" type="number" min="1" style="width:80px" />
+                </label>
+                <button id="betBtn" disabled>Bet</button>
+                <label>
+                    Raise to:
+                    <input id="raiseInput" type="number" min="1" style="width:90px" />
+                </label>
+                <button id="raiseBtn" disabled>Raise</button>
+                <button id="callBtn" disabled>Call</button>
+                <button id="checkBtn" disabled>Check</button>
+            </div>
+            <div class="row">
+                <span id="statusText">Not connected</span>
+                <span id="stageText">Stage: Unknown</span>
+                <span id="playerCountText">Players: 0</span>
+                <span id="hostHint"></span>
+                <span id="potText"></span>
+                <span id="maxBetText"></span>
+                <span id="needCallText"></span>
+                <span id="minBetText"></span>
+                <span id="minRaiseText"></span>
+
+            </div>
+        </section>
+
+        <section id="table">
+            <div id="community"></div>
+            <div id="players"></div>
+        </section>
+
+        <section id="log"></section>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const STAGE_LABELS = {
+            idle: "Not started",
+            preflop: "Preflop (hole cards dealt)",
+            flop: "Flop",
+            turn: "Turn",
+            river: "River",
+            showdown: "Showdown",
+        };
+
+        const HAND_NAMES = {
+            0: "High Card",
+            1: "One Pair",
+            2: "Two Pair",
+            3: "Three of a Kind",
+            4: "Straight",
+            5: "Flush",
+            6: "Full House",
+            7: "Four of a Kind",
+            8: "Straight Flush",
+        };
+
+        const statusText = document.getElementById("statusText");
+        const stageText = document.getElementById("stageText");
+        const playerCountText = document.getElementById("playerCountText");
+        const hostHint = document.getElementById("hostHint");
+        const logDiv = document.getElementById("log");
+        const nameInput = document.getElementById("nameInput");
+        const joinBtn = document.getElementById("joinBtn");
+        const readyBtn = document.getElementById("readyBtn");
+        const foldBtn = document.getElementById("foldBtn");
+        const startNextBtn = document.getElementById("startNextBtn");
+        const resetBtn = document.getElementById("resetBtn");
+        const betInput = document.getElementById("betInput");
+        const betBtn = document.getElementById("betBtn");
+        const raiseInput = document.getElementById("raiseInput");
+        const raiseBtn = document.getElementById("raiseBtn");
+        const callBtn = document.getElementById("callBtn");
+        const checkBtn = document.getElementById("checkBtn");
+        const potText = document.getElementById("potText");
+        const maxBetText = document.getElementById("maxBetText");
+        const needCallText = document.getElementById("needCallText");
+        const minBetText = document.getElementById("minBetText");
+        const minRaiseText = document.getElementById("minRaiseText");
+
+
+        let gameState = {
+            stage: "idle",
+            communityCards: [],
+            hostId: null,
+            playerCount: 0,
+            you: null,
+            others: [],
+            pots: [],
+            dealerSeat: null,
+            sbSeat: null,
+            bbSeat: null,
+            currentMaxBet: 0,
+            minBet: 20,
+            minRaiseInc: 20,
+            currentTurnId: null,
+
+        };
+
+        let hasJoined = false;
+        let mySocketId = null;
+
+        // ====== Helpers: Card rendering & hand evaluation ======
+        function createCardElement(card) {
+            const div = document.createElement("div");
+            if (!card) {
+                div.className = "card back";
+                div.textContent = "?";
+                return div;
+            }
+            const isRed = card.suit === "♥" || card.suit === "♦";
+            div.className = "card " + (isRed ? "red" : "black");
+            const rankMap = { 11: "J", 12: "Q", 13: "K", 14: "A" };
+            const r = rankMap[card.rank] || card.rank;
+            div.textContent = r + card.suit;
+            return div;
+        }
+
+        function compareScores(a, b) {
+            const len = Math.max(a.length, b.length);
+            for (let i = 0; i < len; i++) {
+                const av = a[i] ?? 0;
+                const bv = b[i] ?? 0;
+                if (av !== bv) return av - bv;
+            }
+            return 0;
+        }
+
+        function describeHand(score) {
+            if (!score) return "Unknown hand";
+            const category = score[0];
+            if (category === 8 && score[1] === 14) {
+                return "Royal Flush";
+            }
+            return HAND_NAMES[category] || "Unknown hand";
+        }
+
+        function evaluate5Cards(cards) {
+            const ranks = cards.map((c) => c.rank);
+            const suits = cards.map((c) => c.suit);
+            const rankCount = {};
+            for (const r of ranks) {
+                rankCount[r] = (rankCount[r] || 0) + 1;
+            }
+            const counts = Object.values(rankCount).sort((a, b) => b - a);
+            const isFlush = new Set(suits).size === 1;
+
+            const uniqueRanks = [...new Set(ranks)].sort((a, b) => b - a);
+            let straightHigh = null;
+
+            if (uniqueRanks.length === 5) {
+                if (uniqueRanks[0] - uniqueRanks[4] === 4) {
+                    straightHigh = uniqueRanks[0];
+                } else {
+                    const set = new Set(uniqueRanks);
+                    if (
+                        set.has(14) &&
+                        set.has(2) &&
+                        set.has(3) &&
+                        set.has(4) &&
+                        set.has(5)
+                    ) {
+                        straightHigh = 5; // A2345
+                    }
+                }
+            }
+
+            const isStraight = straightHigh !== null;
+            const score = [];
+            const rankKeys = Object.keys(rankCount).map(Number);
+
+            // Straight flush
+            if (isFlush && isStraight) {
+                score.push(8, straightHigh);
+                return score;
+            }
+
+            // Four of a kind
+            if (counts[0] === 4) {
+                let fourRank = null;
+                let kicker = null;
+                for (const r of rankKeys) {
+                    if (rankCount[r] === 4) fourRank = r;
+                    else if (rankCount[r] === 1) kicker = r;
+                }
+                score.push(7, fourRank, kicker);
+                return score;
+            }
+
+            // Full house
+            if (counts[0] === 3 && counts[1] === 2) {
+                let tripRank = null;
+                let pairRank = null;
+                for (const r of rankKeys) {
+                    if (rankCount[r] === 3) tripRank = r;
+                    else if (rankCount[r] === 2) pairRank = r;
+                }
+                score.push(6, tripRank, pairRank);
+                return score;
+            }
+
+            // Flush
+            if (isFlush) {
+                const sortedRanks = ranks.slice().sort((a, b) => b - a);
+                score.push(5, ...sortedRanks);
+                return score;
+            }
+
+            // Straight
+            if (isStraight) {
+                score.push(4, straightHigh);
+                return score;
+            }
+
+            // Three of a kind
+            if (counts[0] === 3) {
+                let tripRank = null;
+                const kickers = [];
+                for (const r of rankKeys) {
+                    if (rankCount[r] === 3) tripRank = r;
+                    else kickers.push(r);
+                }
+                kickers.sort((a, b) => b - a);
+                score.push(3, tripRank, ...kickers);
+                return score;
+            }
+
+            // Two pair
+            if (counts[0] === 2 && counts[1] === 2) {
+                const pairs = [];
+                let kicker = null;
+                for (const r of rankKeys) {
+                    if (rankCount[r] === 2) pairs.push(r);
+                    else if (rankCount[r] === 1) kicker = r;
+                }
+                pairs.sort((a, b) => b - a);
+                score.push(2, pairs[0], pairs[1], kicker);
+                return score;
+            }
+
+            // One pair
+            if (counts[0] === 2) {
+                let pairRank = null;
+                const kickers = [];
+                for (const r of rankKeys) {
+                    if (rankCount[r] === 2) pairRank = r;
+                    else kickers.push(r);
+                }
+                kickers.sort((a, b) => b - a);
+                score.push(1, pairRank, ...kickers);
+                return score;
+            }
+
+            // High card
+            const sortedRanks = ranks.slice().sort((a, b) => b - a);
+            score.push(0, ...sortedRanks);
+            return score;
+        }
+
+        function evaluate7Cards(cards) {
+            let bestScore = null;
+            let bestHand = null;
+
+            function dfs(startIndex, chosenIndices) {
+                if (chosenIndices.length === 5) {
+                    const subset = chosenIndices.map((idx) => cards[idx]);
+                    const score = evaluate5Cards(subset);
+                    if (!bestScore || compareScores(score, bestScore) > 0) {
+                        bestScore = score;
+                        bestHand = subset;
+                    }
+                    return;
+                }
+                for (let i = startIndex; i < cards.length; i++) {
+                    chosenIndices.push(i);
+                    dfs(i + 1, chosenIndices);
+                    chosenIndices.pop();
+                }
+            }
+
+            dfs(0, []);
+            return { score: bestScore, hand: bestHand };
+        }
+
+        // ====== Log ======
+        function appendLog(msg) {
+            const div = document.createElement("div");
+            div.textContent = msg;
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // ====== Render ======
+        function renderCommunity() {
+            const container = document.getElementById("community");
+            container.innerHTML = "";
+            for (const card of gameState.communityCards || []) {
+                container.appendChild(createCardElement(card));
+            }
+        }
+
+        function renderPlayers() {
+            const container = document.getElementById("players");
+            container.innerHTML = "";
+
+            const isShowdown = gameState.stage === "showdown";
+
+            const list = [];
+            if (gameState.you) {
+                list.push({ ...gameState.you, isYou: true });
+            }
+            for (const o of gameState.others || []) {
+                list.push({ ...o, isYou: false });
+            }
+
+            let winnerIds = new Set();
+
+            if (isShowdown) {
+                let bestScore = null;
+                const active = list.filter(
+                    (p) =>
+                        !p.folded &&
+                        Array.isArray(p.holeCards) &&
+                        p.holeCards.length === 2 &&
+                        gameState.communityCards.length >= 5
+                );
+
+                for (const p of active) {
+                    const cards = p.holeCards.concat(gameState.communityCards);
+                    const { score } = evaluate7Cards(cards);
+                    p.score = score;
+                    p.handName = describeHand(score);
+
+                    if (!bestScore || compareScores(score, bestScore) > 0) {
+                        bestScore = score;
+                        winnerIds = new Set([p.id]);
+                    } else if (compareScores(score, bestScore) === 0) {
+                        winnerIds.add(p.id);
+                    }
+                }
+
+                // Mark folded players
+                for (const p of list) {
+                    if (p.folded) {
+                        p.handName = "Folded";
+                    } else if (!p.handName && p.holeCards && p.holeCards.length === 2) {
+                        // Not enough community cards yet
+                        p.handName = "Showdown not complete";
+                    }
+                }
+            }
+
+            for (const p of list) {
+                const card = document.createElement("div");
+                card.className = "player";
+                if (p.isCurrentTurn) card.classList.add("active-turn");
+                if (p.folded) card.classList.add("folded");
+                if (isShowdown && winnerIds.has(p.id)) card.classList.add("winner");
+
+                const header = document.createElement("div");
+                header.className = "player-header";
+
+                const nameSpan = document.createElement("span");
+                nameSpan.textContent = p.isYou ? `${p.name} (you)` : p.name;
+
+                const statusSpan = document.createElement("span");
+                let status = "";
+                if (p.isHost) status += "Host ";
+                if (p.id === gameState.dealerSeat) status += "[Dealer] ";
+                if (p.id === gameState.sbSeat) status += "[SB] ";
+                if (p.id === gameState.bbSeat) status += "[BB] ";
+                status += p.ready ? "[Ready]" : "[Not ready]";
+                if (p.folded && gameState.stage !== "idle") status += " Folded";
+                if (p.isCurrentTurn) status += " ← Acting";
+                statusSpan.textContent = status.trim();
+
+                header.appendChild(nameSpan);
+                header.appendChild(statusSpan);
+                card.appendChild(header);
+
+                const chipsDiv = document.createElement("div");
+                chipsDiv.style.fontSize = "12px";
+                const ledger = p.ledger ?? 0;
+                const cb = p.currentBet ?? 0;
+                const tc = p.totalCommitted ?? 0;
+                chipsDiv.textContent = `Ledger: ${ledger}, This round: ${cb}, Committed: ${tc}`;
+                card.appendChild(chipsDiv);
+
+                const handDiv = document.createElement("div");
+                handDiv.className = "hand";
+
+                if (p.isYou || (isShowdown && p.holeCards && p.holeCards.length > 0)) {
+                    (p.holeCards || []).forEach((c) => handDiv.appendChild(createCardElement(c)));
+                } else {
+                    // Opponents: show 2 card backs before showdown
+                    for (let i = 0; i < 2; i++) {
+                        handDiv.appendChild(createCardElement(null));
+                    }
+                }
+                card.appendChild(handDiv);
+
+                if (isShowdown) {
+                    const resDiv = document.createElement("div");
+                    resDiv.className = "result";
+                    let text = "";
+                    if (p.folded) {
+                        text = "Folded";
+                    } else if (p.holeCards && p.holeCards.length === 2) {
+                        text = "Hand: " + (p.handName || "Unknown");
+                    } else {
+                        text = "Not in this hand";
+                    }
+                    resDiv.textContent = text;
+                    card.appendChild(resDiv);
+                }
+
+                container.appendChild(card);
+            }
+        }
+
+        function renderStatus() {
+            const s = gameState;
+            stageText.textContent = "Stage: " + (STAGE_LABELS[s.stage] || s.stage);
+            playerCountText.textContent = "Players: " + (s.playerCount || 0);
+            const totalPot = (s.pots || []).reduce((x, y) => x + (y.amount || 0), 0);
+            potText.textContent = "Pot: " + totalPot;
+            maxBetText.textContent = "Max bet: " + (s.currentMaxBet || 0);
+
+            if (!s.you) {
+                hostHint.textContent = "You haven't joined yet. Enter a nickname and click 'Join Room'.";
+            } else if (s.you.isHost) {
+                hostHint.textContent = "You are the host. You can control 'Start Next Hand' and 'Reset Game'.";
+            } else {
+                const host = s.you.isHost
+                    ? s.you
+                    : (s.others || []).find((p) => p.isHost);
+                hostHint.textContent = host
+                    ? "Host: " + host.name
+                    : "No host yet (waiting for someone to join).";
+            }
+
+            // Button states
+            joinBtn.disabled = hasJoined;
+            nameInput.disabled = hasJoined;
+
+            if (!s.you) {
+                readyBtn.disabled = true;
+                foldBtn.disabled = true;
+                startNextBtn.disabled = true;
+                resetBtn.disabled = true;
+                betBtn.disabled = true;
+                callBtn.disabled = true;
+                checkBtn.disabled = true;
+                betInput.disabled = true;
+                raiseBtn.disabled = true;
+                raiseInput.disabled = true;
+            } else {
+                // Ready only matters during idle stage
+                readyBtn.disabled = s.stage !== "idle";
+                readyBtn.textContent = s.you.ready ? "Unready" : "Ready";
+
+                // Fold: only during play and not already folded
+                foldBtn.disabled =
+                    s.stage === "idle" || s.stage === "showdown" || s.you.folded;
+
+                // Next hand: host controls, others disabled
+                startNextBtn.disabled = !s.you.isHost;
+                startNextBtn.textContent = "Start Next Hand";
+
+                // Reset: host only
+                resetBtn.disabled = !s.you.isHost;
+
+                const inPlay = s.stage !== "idle" && s.stage !== "showdown" && !s.you.folded && s.you.inHand !== false;
+                const isYourTurn = s.currentTurnId && mySocketId && s.currentTurnId === mySocketId;
+                betInput.disabled = !inPlay;
+                const maxBet = s.currentMaxBet || 0;
+                const youBet = s.you.currentBet || 0;
+                const need = Math.max(0, maxBet - youBet);
+                needCallText.textContent = "To call: " + need;
+                minBetText.textContent = "Min bet: " + (s.minBet || 0);
+                minRaiseText.textContent = "Min raise increment: " + (s.minRaiseInc || 0);
+                const canBet = inPlay && isYourTurn && maxBet === 0;
+                const canRaise = inPlay && isYourTurn && maxBet > 0;
+                const canCall = inPlay && isYourTurn && need > 0;
+                const canCheck = inPlay && isYourTurn && need === 0;
+                betBtn.disabled = !canBet;
+                raiseInput.disabled = !canRaise;
+                raiseBtn.disabled = !canRaise;
+                callBtn.disabled = !canCall;
+                checkBtn.disabled = !canCheck;
+            }
+
+        }
+
+        function renderAll() {
+            renderCommunity();
+            renderPlayers();
+            renderStatus();
+        }
+
+        // ====== Events ======
+        joinBtn.addEventListener("click", () => {
+            const name = nameInput.value.trim();
+            socket.emit("join", { name });
+            hasJoined = true;
+        });
+
+        readyBtn.addEventListener("click", () => {
+            if (!gameState.you) return;
+            socket.emit("setReady", !gameState.you.ready);
+        });
+
+        foldBtn.addEventListener("click", () => {
+            socket.emit("fold");
+        });
+
+        startNextBtn.addEventListener("click", () => {
+            socket.emit("startNextHand");
+        });
+
+        resetBtn.addEventListener("click", () => {
+            socket.emit("resetGame");
+        });
+
+        betBtn.addEventListener("click", () => {
+            const v = Math.floor(Number(betInput.value) || 0);
+            socket.emit("bet", v);
+        });
+
+        raiseBtn.addEventListener("click", () => {
+            const v = Math.floor(Number(raiseInput.value) || 0);
+            socket.emit("raise", v);
+        });
+
+        callBtn.addEventListener("click", () => {
+            socket.emit("call");
+        });
+
+        checkBtn.addEventListener("click", () => {
+            socket.emit("check");
+        });
+
+        // ====== Socket events ======
+        socket.on("connect", () => {
+            statusText.textContent = "Connected to server";
+            mySocketId = socket.id;
+        });
+
+        socket.on("disconnect", () => {
+            statusText.textContent = "Disconnected from server";
+            gameState = {
+                stage: "idle",
+                communityCards: [],
+                hostId: null,
+                playerCount: 0,
+                you: null,
+                others: [],
+                pot: 0,
+            };
+            renderAll();
+        });
+
+        socket.on("state", (data) => {
+            gameState = data;
+            renderAll();
+        });
+
+        socket.on("message", (msg) => {
+            appendLog(msg);
+        });
+
+        socket.on("actionError", (msg) => {
+            alert(msg);
+        });
+
+        // Initial render
+        renderAll();
+    </script>
+</body>
+
+</html>
