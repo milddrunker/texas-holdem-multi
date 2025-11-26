@@ -251,7 +251,9 @@ io.on('connection', (socket) => {
             players[socket.id].name = name;
             // spectator removed; unified as player
         } else {
-            const nextSeat = Object.keys(players).length + 1;
+            const usedSeats = new Set(Object.values(players).map((p) => p.id));
+            let nextSeat = 1;
+            while (usedSeats.has(nextSeat)) nextSeat++;
             players[socket.id] = {
                 id: nextSeat,
                 name: name,
